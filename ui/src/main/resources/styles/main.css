@@ -1,0 +1,177 @@
+.root {
+    -fx-background-color: #1a1a2e;
+    -fx-font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.main-view, .settings-view, .progress-view, .result-view {
+    -fx-background-color: #1a1a2e;
+}
+
+.app-title {
+    -fx-text-fill: #e94560;
+    -fx-effect: dropshadow(gaussian, #e94560, 10, 0.5, 0, 0);
+}
+
+.app-subtitle {
+    -fx-text-fill: #a0a0b0;
+}
+
+.screen-title {
+    -fx-text-fill: #e94560;
+}
+
+.field-label {
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 14px;
+}
+
+.primary-button {
+    -fx-background-color: #e94560;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-padding: 10 24;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+}
+
+.primary-button:hover {
+    -fx-background-color: #ff6b81;
+}
+
+.secondary-button {
+    -fx-background-color: #16213e;
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 14px;
+    -fx-padding: 10 24;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+    -fx-border-color: #e94560;
+    -fx-border-width: 1;
+}
+
+.secondary-button:hover {
+    -fx-background-color: #1a1a2e;
+}
+
+.danger-button {
+    -fx-background-color: #f44336;
+    -fx-text-fill: white;
+    -fx-font-size: 14px;
+    -fx-padding: 10 24;
+    -fx-cursor: hand;
+    -fx-background-radius: 4;
+}
+
+.danger-button:hover {
+    -fx-background-color: #d32f2f;
+}
+
+.version-combo {
+    -fx-background-color: #16213e;
+    -fx-text-fill: #e0e0e0;
+}
+
+.version-combo .list-cell {
+    -fx-background-color: #16213e;
+    -fx-text-fill: #e0e0e0;
+}
+
+.version-list {
+    -fx-background-color: #16213e;
+    -fx-control-inner-background: #16213e;
+}
+
+.version-list .list-cell {
+    -fx-background-color: #16213e;
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 13px;
+}
+
+.version-list .list-cell:selected {
+    -fx-background-color: #0f3460;
+    -fx-text-fill: white;
+}
+
+.radio-button {
+    -fx-text-fill: #e0e0e0;
+}
+
+.radio-button .radio {
+    -fx-background-color: #16213e;
+    -fx-border-color: #e94560;
+}
+
+.check-box {
+    -fx-text-fill: #e0e0e0;
+}
+
+.check-box .box {
+    -fx-background-color: #16213e;
+    -fx-border-color: #e94560;
+}
+
+.text-field {
+    -fx-background-color: #16213e;
+    -fx-text-fill: #e0e0e0;
+    -fx-border-color: #0f3460;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.combo-box {
+    -fx-background-color: #16213e;
+}
+
+.combo-box .list-cell {
+    -fx-background-color: #16213e;
+    -fx-text-fill: #e0e0e0;
+}
+
+.progress-bar {
+    -fx-accent: #e94560;
+}
+
+.progress-bar .track {
+    -fx-background-color: #16213e;
+}
+
+.stage-label {
+    -fx-text-fill: #e0e0e0;
+    -fx-font-size: 16px;
+}
+
+.log-area {
+    -fx-background-color: #0f0f1a;
+    -fx-text-fill: #a0a0b0;
+    -fx-font-family: 'Consolas', 'Monaco', monospace;
+    -fx-font-size: 12px;
+    -fx-control-inner-background: #0f0f1a;
+}
+
+.log-area .content {
+    -fx-background-color: #0f0f1a;
+}
+
+.status-label {
+    -fx-text-fill: #a0a0b0;
+    -fx-font-size: 12px;
+}
+
+.path-label {
+    -fx-text-fill: #a0a0b0;
+    -fx-font-size: 12px;
+}
+
+.list-view {
+    -fx-background-color: #16213e;
+    -fx-control-inner-background: #16213e;
+}
+
+.list-view .list-cell {
+    -fx-background-color: #16213e;
+    -fx-text-fill: #e0e0e0;
+}
+
+.list-view .list-cell:odd {
+    -fx-background-color: #1a1a2e;
+}
