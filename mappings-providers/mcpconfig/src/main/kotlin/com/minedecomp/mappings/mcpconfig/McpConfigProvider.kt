@@ -26,7 +26,22 @@ class McpConfigProvider(private val cacheDir: String) : MappingProvider {
         private const val MAVEN_BASE = "https://files.minecraftforge.net/maven/de/oceanlabs/mcp"
 
         /**
-         * MC version -> (mcp_stable number, mc short version used in the artifact path).
+         * Every MC version with a published joined.srg (notch -> searge).
+         * Verified against files.minecraftforge.net.
+         */
+        private val srgVersions: Set<String> = setOf(
+            "1.6.4", "1.7.2", "1.7.10",
+            "1.8", "1.8.8", "1.8.9",
+            "1.9", "1.9.2", "1.9.4",
+            "1.10", "1.10.2",
+            "1.11", "1.11.1", "1.11.2",
+            "1.12", "1.12.1", "1.12.2"
+        )
+
+        /**
+         * MC version -> (mcp_stable number, mc short version used in the artifact path)
+         * for the searge -> human-readable names CSVs. Versions present in
+         * [srgVersions] but absent here (1.6.4, 1.7.2) get searge names only.
          * Verified against files.minecraftforge.net.
          */
         private val stableVersions: Map<String, Pair<Int, String>> = mapOf(
@@ -35,10 +50,12 @@ class McpConfigProvider(private val cacheDir: String) : MappingProvider {
             "1.8.8" to (18 to "1.8"),
             "1.8.9" to (18 to "1.8"),
             "1.9" to (24 to "1.9"),
+            "1.9.2" to (24 to "1.9"),
             "1.9.4" to (24 to "1.9"),
             "1.10" to (29 to "1.10.2"),
             "1.10.2" to (29 to "1.10.2"),
             "1.11" to (31 to "1.11"),
+            "1.11.1" to (32 to "1.11"),
             "1.11.2" to (32 to "1.11"),
             "1.12" to (39 to "1.12"),
             "1.12.1" to (39 to "1.12"),
@@ -52,7 +69,7 @@ class McpConfigProvider(private val cacheDir: String) : MappingProvider {
         .build()
 
     override suspend fun supports(version: String): Boolean {
-        return version in stableVersions
+        return version in srgVersions
     }
 
     override suspend fun fetchMappings(version: String, jarType: JarType): Mappings = withContext(Dispatchers.IO) {
@@ -70,20 +87,23 @@ class McpConfigProvider(private val cacheDir: String) : MappingProvider {
         }
         val (classMap, seargeMethods, seargeFields) = parseSrg(srgFile.readText())
 
-        // Stage 2: searge -> mcp names from mcp_stable CSVs
+        // Stage 2: searge -> mcp names from mcp_stable CSVs.
+        // Versions without a stable release (1.6.4, 1.7.2) keep searge names.
         val methodNames = mutableMapOf<String, String>()
         val fieldNames = mutableMapOf<String, String>()
-        val (stable, short) = stableVersions[version]
-            ?: throw RuntimeException("No mcp_stable mapping known for version $version")
-        val methodsCsv = File(mappingsDir, "methods.csv")
-        val fieldsCsv = File(mappingsDir, "fields.csv")
-        if (!methodsCsv.exists() || !fieldsCsv.exists()) {
-            val stableUrl = "$MAVEN_BASE/mcp_stable/$stable-$short/mcp_stable-$stable-$short.zip"
-            downloadZipEntry(stableUrl, "methods.csv", methodsCsv)
-            downloadZipEntry(stableUrl, "fields.csv", fieldsCsv)
+        val stable = stableVersions[version]
+        if (stable != null) {
+            val (stableNum, short) = stable
+            val methodsCsv = File(mappingsDir, "methods.csv")
+            val fieldsCsv = File(mappingsDir, "fields.csv")
+            if (!methodsCsv.exists() || !fieldsCsv.exists()) {
+                val stableUrl = "$MAVEN_BASE/mcp_stable/$stableNum-$short/mcp_stable-$stableNum-$short.zip"
+                downloadZipEntry(stableUrl, "methods.csv", methodsCsv)
+                downloadZipEntry(stableUrl, "fields.csv", fieldsCsv)
+            }
+            parseCsv(methodsCsv.readText(), methodNames)
+            parseCsv(fieldsCsv.readText(), fieldNames)
         }
-        parseCsv(methodsCsv.readText(), methodNames)
-        parseCsv(fieldsCsv.readText(), fieldNames)
 
         // Merge: notch -> mcp (fall back to searge when no mcp name exists)
         val methodMappings = mutableMapOf<String, String>()

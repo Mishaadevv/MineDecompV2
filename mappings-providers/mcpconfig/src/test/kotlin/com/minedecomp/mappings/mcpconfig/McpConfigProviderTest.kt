@@ -16,10 +16,21 @@ class McpConfigProviderTest {
     @Test
     fun `supports known versions`() = runBlocking {
         val provider = McpConfigProvider(tempDir.absolutePath)
-        assertTrue(provider.supports("1.12.2"))
-        assertTrue(provider.supports("1.7.10"))
-        assertFalse(provider.supports("1.16.5"))
-        assertFalse(provider.supports("1.20.1"))
+        // Full MCP range with joined.srg
+        for (v in listOf(
+            "1.6.4", "1.7.2", "1.7.10",
+            "1.8", "1.8.8", "1.8.9",
+            "1.9", "1.9.2", "1.9.4",
+            "1.10", "1.10.2",
+            "1.11", "1.11.1", "1.11.2",
+            "1.12", "1.12.1", "1.12.2"
+        )) {
+            assertTrue(provider.supports(v), "should support $v")
+        }
+        // No srg published for these
+        for (v in listOf("1.10.1", "1.9.1", "1.8.1", "1.7.9", "1.6.2", "1.5.2", "1.13.2", "1.16.5", "1.20.1")) {
+            assertFalse(provider.supports(v), "should not support $v")
+        }
     }
 
     @Test
@@ -56,6 +67,37 @@ class McpConfigProviderTest {
         assertTrue(
             mappings.classMappings.containsValue("net/minecraft/util/EnumChatFormatting"),
             "EnumChatFormatting should be remapped"
+        )
+    }
+
+    @Test
+    fun `fetch mappings for 1_11_1`() = runBlocking {
+        val provider = McpConfigProvider(tempDir.absolutePath)
+        val mappings = provider.fetchMappings("1.11.1", JarType.CLIENT)
+
+        assertTrue(mappings.classMappings.isNotEmpty(), "class mappings should not be empty")
+        assertTrue(mappings.methodMappings.isNotEmpty(), "method mappings should not be empty")
+        assertTrue(mappings.fieldMappings.isNotEmpty(), "field mappings should not be empty")
+
+        val humanNames = mappings.methodMappings.values.filter {
+            !it.startsWith("func_") && it.length > 1
+        }
+        assertTrue(humanNames.isNotEmpty(), "should contain MCP (human-readable) method names")
+    }
+
+    @Test
+    fun `fetch srg-only mappings for 1_7_2`() = runBlocking {
+        val provider = McpConfigProvider(tempDir.absolutePath)
+        val mappings = provider.fetchMappings("1.7.2", JarType.CLIENT)
+
+        assertTrue(mappings.classMappings.isNotEmpty(), "class mappings should not be empty")
+        assertTrue(mappings.methodMappings.isNotEmpty(), "method mappings should not be empty")
+        assertTrue(mappings.fieldMappings.isNotEmpty(), "field mappings should not be empty")
+
+        // No stable CSV exists for 1.7.2: searge names are the fallback
+        assertTrue(
+            mappings.methodMappings.values.any { it.startsWith("func_") },
+            "should fall back to searge names"
         )
     }
 }
