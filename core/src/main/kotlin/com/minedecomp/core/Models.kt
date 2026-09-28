@@ -1,6 +1,17 @@
 package com.minedecomp.core
 
-enum class JarType { CLIENT, SERVER }
+enum class JarType { CLIENT, SERVER, BOTH }
+
+fun JarType.sides(): List<JarType> = when (this) {
+    JarType.BOTH -> listOf(JarType.CLIENT, JarType.SERVER)
+    else -> listOf(this)
+}
+
+fun JarType.dirName(): String = when (this) {
+    JarType.CLIENT -> "client"
+    JarType.SERVER -> "server"
+    JarType.BOTH -> throw IllegalArgumentException("BOTH must be split into sides first")
+}
 
 data class VersionInfo(
     val id: String,

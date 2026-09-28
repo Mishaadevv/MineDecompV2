@@ -38,6 +38,18 @@ gradlew.bat build
 gradlew.bat :ui:run
 ```
 
+Headless CLI (no GUI):
+
+```bat
+gradlew.bat :cli:run --args="--version 1.12.2"
+gradlew.bat :cli:run --args="--version 1.7.10 --side both --decompiler cfr"
+gradlew.bat :cli:run --args="--list-versions"
+gradlew.bat :cli:run --args="--help"
+```
+
+`--side both` decompiles client and server sequentially into
+`sources/<version>/client` and `sources/<version>/server` with one combined report.
+
 Run tests:
 
 ```bat

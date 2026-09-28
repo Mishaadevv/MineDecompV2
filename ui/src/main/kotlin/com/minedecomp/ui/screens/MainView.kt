@@ -107,7 +107,7 @@ class MainView(
             if (selected.provider == null) return@setOnAction
             val jarType = when (jarTypeToggle.selectedToggle) {
                 serverRadio -> JarType.SERVER
-                bothRadio -> JarType.CLIENT
+                bothRadio -> JarType.BOTH
                 else -> JarType.CLIENT
             }
 

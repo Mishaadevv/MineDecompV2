@@ -58,7 +58,7 @@ class EndToEndTest {
         assertTrue(result.success, "pipeline failed: ${result.errors}")
         assertTrue(result.classesDecompiled > 1000, "too few classes: ${result.classesDecompiled}")
 
-        val sourcesDir = File(workDir, "sources/$version")
+        val sourcesDir = File(workDir, "sources/$version/client")
         assertTrue(sourcesDir.isDirectory, "sources dir missing: $sourcesDir")
 
         val javaFiles = sourcesDir.walkTopDown().filter { it.isFile && it.extension == "java" }.toList()

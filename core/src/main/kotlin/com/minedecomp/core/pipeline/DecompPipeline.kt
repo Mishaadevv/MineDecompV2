@@ -25,6 +25,9 @@ class DecompPipeline(
     private val decompilerEngine = DecompilerEngine()
 
     suspend fun execute(request: DecompRequest, callbacks: PipelineCallbacks): DecompResult {
+        require(request.jarType != JarType.BOTH) {
+            "JarType.BOTH must be split into CLIENT/SERVER runs (use DecompService)"
+        }
         return try {
             callbacks.onEvent(PipelineEvent.StageStarted("download"))
             callbacks.onEvent(PipelineEvent.Log(LogLevel.INFO, "Fetching version manifest..."))
@@ -45,6 +48,7 @@ class DecompPipeline(
             val downloadKey = when (request.jarType) {
                 JarType.CLIENT -> "client"
                 JarType.SERVER -> "server"
+                JarType.BOTH -> throw IllegalArgumentException("BOTH must be split into sides first")
             }
 
             val downloadInfo = metadata.downloads[downloadKey]
@@ -91,7 +95,7 @@ class DecompPipeline(
             callbacks.onEvent(PipelineEvent.Log(LogLevel.INFO, "Decompiling with ${request.decompiler}..."))
             fileLogger?.info("Decompiling with ${request.decompiler}...")
 
-            val outputDir = File(request.outputDir, "sources/${request.version}")
+            val outputDir = File(request.outputDir, "sources/${request.version}/${request.jarType.dirName()}")
             outputDir.mkdirs()
 
             val stats = decompilerEngine.decompile(
