@@ -47,7 +47,8 @@ fun main(args: Array<String>) {
         val cacheDir = opts.cache ?: AppSettings.defaultCacheDir()
         val providers: List<MappingProvider> = listOf(
             McpConfigProvider(cacheDir),
-            MojangMappingsProvider(cacheDir)
+            MojangMappingsProvider(cacheDir),
+            com.minedecomp.core.mappings.NoopMappingsProvider(cacheDir)
         )
 
         if (opts.listVersions) {

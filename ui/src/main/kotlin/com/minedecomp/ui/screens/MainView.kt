@@ -24,7 +24,7 @@ class MainView(
     onOpenSettings: () -> Unit
 ) : VBox(20.0) {
 
-    data class VersionRow(val id: String, val provider: String?)
+    data class VersionRow(val id: String, val provider: String?, val hasMappings: Boolean)
 
     private val allRows = FXCollections.observableArrayList<VersionRow>()
     private val filteredRows = FilteredList(allRows)
@@ -71,9 +71,12 @@ class MainView(
                     if (empty || item == null) {
                         text = null
                         textFill = Color.web("#e0e0e0")
-                    } else if (item.provider != null) {
+                    } else if (item.provider != null && item.hasMappings) {
                         text = "${item.id}  —  ${item.provider}"
                         textFill = Color.web("#e0e0e0")
+                    } else if (item.provider != null) {
+                        text = "${item.id}  —  ${item.provider}"
+                        textFill = Color.web("#FF9800")
                     } else {
                         text = "${item.id}  —  no mappings"
                         textFill = Color.web("#616161")
@@ -156,6 +159,11 @@ class MainView(
                 statusLabel.text = "No mappings published for ${selected.id} — decompilation unavailable."
                 statusLabel.textFill = Color.ORANGE
             }
+            !selected.hasMappings -> {
+                startButton.isDisable = false
+                statusLabel.text = "No mappings for ${selected.id} — output will keep obfuscated names."
+                statusLabel.textFill = Color.web("#FF9800")
+            }
             else -> {
                 startButton.isDisable = false
                 statusLabel.text = "${selected.id} — mappings: ${selected.provider}."
@@ -185,7 +193,7 @@ class MainView(
                                 false
                             }
                         }
-                        VersionRow(id, provider?.name)
+                        VersionRow(id, provider?.name, provider?.hasMappings ?: false)
                     }
                 }.awaitAll()
 
