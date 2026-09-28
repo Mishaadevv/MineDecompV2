@@ -17,9 +17,9 @@ do), without hand-written batch scripts:
 
 | Range | Mappings source | Status |
 |---|---|---|
-| 1.7.10 – 1.12.2 | MCP (`joined.srg` + `mcp_stable` CSV from Forge maven) | verified end-to-end (1803 files for 1.7.10, 2050 for 1.12.2) |
-| 1.14 – 1.21.x | Mojang official mappings (ProGuard, from Mojang servers) | mappings download + parsing tested |
-| 1.13.x, 26.x | — | hidden in the UI: no published mappings exist |
+| 1.6.4 – 1.12.2 | MCP (`joined.srg` + `mcp_stable` CSV from Forge maven; 1.6.4/1.7.2 searge-only) | verified end-to-end (1803 files for 1.7.10, 2050 for 1.12.2) |
+| 1.14.4 – 1.21.x | Mojang official mappings (ProGuard, from Mojang servers) | mappings download + parsing tested |
+| 1.13.x – 1.14.3, 26.x | — | greyed out in the UI: no published mappings exist |
 
 The main screen lists every release with a live provider badge
 (`MCP`, `Mojang Official`, or greyed-out `no mappings`), plus search.
