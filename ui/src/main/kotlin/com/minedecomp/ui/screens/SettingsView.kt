@@ -21,6 +21,8 @@ class SettingsView(
     private val cacheDirField = TextField()
     private val outputDirField = TextField()
     private val decompilerCombo = ComboBox<String>()
+    private val mappingsCombo = ComboBox<String>()
+    private val mcpChannelCombo = ComboBox<String>()
     private val gradleCheck = CheckBox("Generate Gradle project")
     private val cleanupCheck = CheckBox("Delete temporary files after completion")
     private val themeCombo = ComboBox<String>()
@@ -52,6 +54,23 @@ class SettingsView(
             DecompilerType.CFR -> "CFR"
         }
 
+        mappingsCombo.items.addAll(
+            "Auto", "MCPConfig", "Mojang Official", "Yarn (Fabric)",
+            "MCPConfig 1.13", "Obfuscated (no mappings)"
+        )
+        mappingsCombo.value = when (settings.mappingsSource.trim().lowercase()) {
+            "auto", "" -> "Auto"
+            "mcp", "mcpconfig" -> "MCPConfig"
+            "mojang", "official", "mojang official" -> "Mojang Official"
+            "yarn", "fabric", "yarn (fabric)" -> "Yarn (Fabric)"
+            "mcpnew", "mcp13", "mcpconfig 1.13" -> "MCPConfig 1.13"
+            "noop", "obfuscated", "none", "obfuscated (no mappings)" -> "Obfuscated (no mappings)"
+            else -> "Auto"
+        }
+
+        mcpChannelCombo.items.addAll("Stable", "Snapshot")
+        mcpChannelCombo.value = if (settings.mcpChannel == "snapshot") "Snapshot" else "Stable"
+
         gradleCheck.isSelected = settings.generateGradle
         cleanupCheck.isSelected = settings.cleanupTempFiles
 
@@ -81,10 +100,14 @@ class SettingsView(
             add(HBox(8.0, outputDirField, outputBrowse), 1, 1)
             add(Label("Decompiler:"), 0, 2)
             add(decompilerCombo, 1, 2)
-            add(Label("Theme:"), 0, 3)
-            add(themeCombo, 1, 3)
-            add(gradleCheck, 0, 4, 2, 1)
-            add(cleanupCheck, 0, 5, 2, 1)
+            add(Label("Mappings source:"), 0, 3)
+            add(mappingsCombo, 1, 3)
+            add(Label("MCP channel:"), 0, 4)
+            add(mcpChannelCombo, 1, 4)
+            add(Label("Theme:"), 0, 5)
+            add(themeCombo, 1, 5)
+            add(gradleCheck, 0, 6, 2, 1)
+            add(cleanupCheck, 0, 7, 2, 1)
         }
 
         val saveButton = Button("Save")
@@ -93,6 +116,8 @@ class SettingsView(
             settings.cacheDir = cacheDirField.text.ifBlank { AppSettings.defaultCacheDir() }
             settings.outputDir = outputDirField.text.ifBlank { AppSettings.defaultOutputDir() }
             settings.decompiler = if (decompilerCombo.value == "CFR") DecompilerType.CFR else DecompilerType.VINEFLOWER
+            settings.mappingsSource = if (mappingsCombo.value == "Auto") "auto" else mappingsCombo.value
+            settings.mcpChannel = if (mcpChannelCombo.value == "Snapshot") "snapshot" else "stable"
             settings.generateGradle = gradleCheck.isSelected
             settings.cleanupTempFiles = cleanupCheck.isSelected
             settings.darkTheme = themeCombo.value != "Light"

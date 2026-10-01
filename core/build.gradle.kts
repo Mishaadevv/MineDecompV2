@@ -7,7 +7,7 @@ dependencies {
     implementation("org.ow2.asm:asm-tree:9.6")
     implementation("org.ow2.asm:asm-util:9.6")
     implementation("net.minecraftforge:srgutils:0.4.1")
-    implementation("org.vineflower:vineflower:1.10.1")
+    implementation("org.vineflower:vineflower:1.12.0")
     implementation("org.benf:cfr:0.152")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")

@@ -72,11 +72,19 @@ class DecompPipeline(
             callbacks.onEvent(PipelineEvent.StageCompleted("download"))
             fileLogger?.info("Download completed")
 
+            // Modern server jars (1.18+) are bundler wrappers: the game code
+            // lives in META-INF/versions/<v>/server-<v>.jar inside. Decompiling
+            // the wrapper would yield 4 bundler classes + libraries instead
+            // of the game, so unwrap it first (client jars are never bundled).
+            val effectiveJar = extractBundledJarIfNeeded(
+                jarFile, request.version, downloadKey, request.cacheDir, callbacks
+            )
+
             callbacks.onEvent(PipelineEvent.StageStarted("mappings"))
             callbacks.onEvent(PipelineEvent.Log(LogLevel.INFO, "Fetching mappings..."))
             fileLogger?.info("Fetching mappings...")
 
-            val provider = mappingProviders.find { it.supports(request.version) }
+            val provider = selectProvider(request, callbacks)
                 ?: throw RuntimeException("No mapping provider supports version ${request.version}")
 
             callbacks.onEvent(PipelineEvent.Log(LogLevel.INFO, "Using mapping provider: ${provider.name}"))
@@ -93,7 +101,7 @@ class DecompPipeline(
             val remappedJar = File(request.cacheDir, "remapped/${request.version}-${downloadKey}-remapped.jar")
             remappedJar.parentFile?.mkdirs()
 
-            remapJar(jarFile, remappedJar, mappings, callbacks)
+            remapJar(effectiveJar, remappedJar, mappings, callbacks)
 
             callbacks.onEvent(PipelineEvent.StageCompleted("remap"))
             fileLogger?.info("Remapping completed")
@@ -121,7 +129,7 @@ class DecompPipeline(
             fileLogger?.info("Laying out files...")
 
             if (request.generateGradle) {
-                generateGradleProject(request.outputDir, request.version)
+                generateGradleProject(request.outputDir, request.version, metadata)
             }
 
             callbacks.onEvent(PipelineEvent.StageCompleted("layout"))
@@ -151,8 +159,102 @@ class DecompPipeline(
         }
     }
 
-    private suspend fun remapJar(
-        inputJar: File,
+    companion object {
+        /** Lowercase alias -> canonical provider name. */
+        val mappingAliases: Map<String, String> = mapOf(
+            "mcp" to "MCPConfig",
+            "mcpconfig" to "MCPConfig",
+            "mojang" to "Mojang Official",
+            "official" to "Mojang Official",
+            "yarn" to "Yarn (Fabric)",
+            "fabric" to "Yarn (Fabric)",
+            "mcpnew" to "MCPConfig 1.13",
+            "mcp13" to "MCPConfig 1.13",
+            "mcpconfig-1.13" to "MCPConfig 1.13",
+            "noop" to "Obfuscated (no mappings)",
+            "obfuscated" to "Obfuscated (no mappings)",
+            "none" to "Obfuscated (no mappings)"
+        )
+
+        /**
+         * Normalizes a user-supplied source: null means "auto", otherwise
+         * the canonical provider name to look for.
+         */
+        fun normalizeMappingSource(source: String): String? {
+            val s = source.trim()
+            if (s.equals("auto", ignoreCase = true)) return null
+            mappingAliases[s.lowercase()]?.let { return it }
+            return s
+        }
+    }
+
+    private suspend fun selectProvider(
+        request: DecompRequest,
+        callbacks: PipelineCallbacks
+    ): MappingProvider? {
+        val auto = mappingProviders.find { it.supports(request.version) }
+        val wanted = normalizeMappingSource(request.mappingsSource) ?: return auto
+        val named = mappingProviders.firstOrNull { it.name.equals(wanted, ignoreCase = true) }
+        if (named != null && named.supports(request.version)) {
+            if (named.name != auto?.name) {
+                callbacks.onEvent(
+                    PipelineEvent.Log(LogLevel.INFO, "Mappings source override: ${named.name} (auto would be ${auto?.name ?: "none"})")
+                )
+            }
+            return named
+        }
+        callbacks.onEvent(
+            PipelineEvent.Log(
+                LogLevel.WARN,
+                "Mappings source '$wanted' has nothing for ${request.version} — falling back to ${auto?.name ?: "none"}"
+            )
+        )
+        return auto
+    }
+
+    /**
+     * Mojang ships the server as a bundler wrapper since 1.18: an outer jar
+     * with the bootstrap, libraries and the real game jar nested at
+     * `META-INF/versions/<version>/server-<version>.jar`. Returns the inner
+     * jar (extracted under the cache dir) when detected, else the input.
+     */
+    internal fun extractBundledJarIfNeeded(
+        jarFile: File,
+        version: String,
+        downloadKey: String,
+        cacheDir: String,
+        callbacks: PipelineCallbacks
+    ): File {
+        val innerEntry = findBundledInnerEntry(jarFile, version) ?: return jarFile
+        val dest = File(cacheDir, "bundled/$version-$downloadKey-inner.jar")
+        if (!dest.exists()) {
+            callbacks.onEvent(
+                PipelineEvent.Log(LogLevel.INFO, "Server jar is a bundler wrapper — extracting $innerEntry...")
+            )
+            dest.parentFile?.mkdirs()
+            JarFile(jarFile).use { jar ->
+                val entry = jar.getJarEntry(innerEntry)
+                    ?: throw RuntimeException("Bundled entry vanished: $innerEntry")
+                jar.getInputStream(entry).use { input ->
+                    dest.outputStream().use { output -> input.copyTo(output) }
+                }
+            }
+        }
+        return dest
+    }
+
+    internal fun findBundledInnerEntry(jarFile: File, version: String): String? {
+        JarFile(jarFile).use { jar ->
+            val names = jar.entries().asSequence().map { it.name }.toList()
+            val exact = "META-INF/versions/$version/server-$version.jar"
+            if (names.contains(exact)) return exact
+            return names.firstOrNull {
+                it.startsWith("META-INF/versions/") && it.endsWith(".jar") && !it.endsWith("/")
+            }
+        }
+    }
+
+    private suspend fun remapJar(        inputJar: File,
         outputJar: File,
         mappings: Mappings,
         callbacks: PipelineCallbacks
@@ -221,36 +323,69 @@ class DecompPipeline(
         return cw.toByteArray()
     }
 
-    private fun generateGradleProject(outputDir: String, version: String) {
+    /**
+     * Writes a best-effort Gradle skeleton for the decompiled version: real
+     * library coordinates and Java toolchain from the version metadata,
+     * client main class as the run entry point. Meant as a starting point
+     * for a modding workspace, not a ready Forge/Fabric setup.
+     */
+    internal fun generateGradleProject(outputDir: String, version: String, metadata: VersionMetadata) {
         val projectDir = File(outputDir, "gradle-project")
         projectDir.mkdirs()
 
-        File(projectDir, "build.gradle.kts").writeText("""
+        val javaMajor = metadata.javaVersion?.majorVersion ?: 8
+        // Only libraries with a plain artifact (no native classifiers) map
+        // cleanly onto Gradle coordinates; the rest are listed as comments.
+        val coords = metadata.libraries
+            ?.mapNotNull { it.name }
+            .orEmpty()
+            .filter { it.count { c -> c == ':' } == 2 }
+            .sorted()
+        val depsBlock = if (coords.isEmpty()) {
+            "    // No library list in version metadata for $version."
+        } else {
+            coords.joinToString("\n") { "    implementation(\"$it\")" }
+        }
+        val mainClassBlock = metadata.mainClass?.let {
+            "\napplication {\n    mainClass.set(\"$it\")\n}\n"
+        } ?: ""
+
+        File(projectDir, "build.gradle.kts").writeText(
+            """
             plugins {
                 java
-                id("net.minecraftforge.gradle") version "6.0.0"
+                application
             }
 
             group = "com.example"
             version = "1.0.0"
 
-            java {
-                toolchain {
-                    languageVersion.set(JavaLanguageVersion.of(8))
-                }
-            }
-
-            minecraft {
-                mappings("official", "$version")
+            repositories {
+                mavenCentral()
+                // Mojang libraries live here for older versions:
+                // maven("https://libraries.minecraft.net")
             }
 
             dependencies {
-                minecraft("net.minecraft:client:$version")
+            $depsBlock
             }
-        """.trimIndent())
 
-        File(projectDir, "settings.gradle.kts").writeText("""
+            java {
+                toolchain {
+                    languageVersion.set(JavaLanguageVersion.of($javaMajor))
+                }
+            }
+            $mainClassBlock
+            // Decompiled sources for Minecraft $version are in ../sources/$version.
+            // This skeleton only wires the official libraries; a mod loader
+            // (Forge/Fabric/NeoForge) needs its own Gradle plugin on top.
+            """.trimIndent()
+        )
+
+        File(projectDir, "settings.gradle.kts").writeText(
+            """
             rootProject.name = "minedecomp-$version"
-        """.trimIndent())
+            """.trimIndent()
+        )
     }
 }

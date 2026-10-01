@@ -33,10 +33,11 @@ class DecompilerEngine {
         }
     }
 
-    private fun countJavaFiles(outputDir: File): Pair<Int, List<String>> {
+    private fun countSourceFiles(outputDir: File): Pair<Int, List<String>> {
         if (!outputDir.isDirectory) return 0 to emptyList()
+        // Since 1.11 Vineflower emits .kt for classes with Kotlin metadata.
         val files = outputDir.walkTopDown()
-            .filter { it.isFile && it.extension == "java" }
+            .filter { it.isFile && (it.extension == "java" || it.extension == "kt") }
             .toList()
         return files.size to emptyList()
     }
@@ -106,11 +107,12 @@ class DecompilerEngine {
             errors.add("Decompiler error: ${e.message}")
         }
 
-        val (produced, _) = countJavaFiles(outputDir)
+        val (produced, _) = countSourceFiles(outputDir)
         onClassDecompiled(total, total.coerceAtLeast(1))
 
         if (produced == 0 && errors.isEmpty()) {
-            errors.add("Decompiler produced no output for ${inputJar.name} ($total classes in input)")
+            val logTail = logWriter.toString().trim().lines().takeLast(5).joinToString(" | ")
+            errors.add("Decompiler produced no output for ${inputJar.name} ($total classes in input). Log: $logTail")
         }
         return DecompStats(produced, errors)
     }
@@ -137,7 +139,7 @@ class DecompilerEngine {
             errors.add("CFR error: ${e.message}")
         }
 
-        val (produced, _) = countJavaFiles(outputDir)
+        val (produced, _) = countSourceFiles(outputDir)
         onClassDecompiled(total, total.coerceAtLeast(1))
 
         if (produced == 0 && errors.isEmpty()) {

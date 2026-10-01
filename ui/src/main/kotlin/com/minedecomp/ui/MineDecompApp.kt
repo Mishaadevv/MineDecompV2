@@ -27,7 +27,7 @@ class MineDecompApp : Application() {
 
     private fun createProviders(): List<com.minedecomp.core.mappings.MappingProvider> {
         return listOf(
-            com.minedecomp.mappings.mcpconfig.McpConfigProvider(settings.cacheDir),
+            com.minedecomp.mappings.mcpconfig.McpConfigProvider(settings.cacheDir, settings.mcpChannel),
             com.minedecomp.mappings.mojang.MojangMappingsProvider(settings.cacheDir),
             com.minedecomp.mappings.yarn.YarnMappingsProvider(settings.cacheDir),
             com.minedecomp.mappings.mcpnew.McpNewProvider(settings.cacheDir),
@@ -108,7 +108,8 @@ class MineDecompApp : Application() {
                 outputDir = outputDir,
                 cacheDir = cacheDir,
                 generateGradle = generateGradle,
-                decompiler = decompiler
+                decompiler = decompiler,
+                mappingsSource = settings.mappingsSource
             )
         )
     }

@@ -26,7 +26,29 @@ data class VersionManifest(
 
 data class VersionMetadata(
     val id: String,
-    val downloads: Map<String, DownloadInfo>
+    val downloads: Map<String, DownloadInfo>,
+    val mainClass: String? = null,
+    val javaVersion: JavaVersionInfo? = null,
+    val libraries: List<VersionLibrary>? = null
+)
+
+data class JavaVersionInfo(
+    val component: String? = null,
+    val majorVersion: Int? = null
+)
+
+data class VersionLibrary(
+    val name: String? = null,
+    val downloads: LibraryDownloads? = null
+)
+
+data class LibraryDownloads(
+    val artifact: LibraryArtifact? = null
+)
+
+data class LibraryArtifact(
+    val path: String? = null,
+    val url: String? = null
 )
 
 data class DownloadInfo(
@@ -49,7 +71,14 @@ data class DecompRequest(
     val outputDir: String,
     val cacheDir: String,
     val generateGradle: Boolean = false,
-    val decompiler: DecompilerType = DecompilerType.VINEFLOWER
+    val decompiler: DecompilerType = DecompilerType.VINEFLOWER,
+    /**
+     * Mappings source override: "auto" (default, first provider that
+     * supports the version) or a provider name / alias ("mojang", "yarn",
+     * "mcp", "mcpnew", "noop"). Unknown or unsupported values fall back
+     * to auto with a warning.
+     */
+    val mappingsSource: String = "auto"
 )
 
 enum class DecompilerType { VINEFLOWER, CFR }

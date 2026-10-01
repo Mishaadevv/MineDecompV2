@@ -35,6 +35,19 @@ class AppSettings {
         get() = prefs.getBoolean("cleanup", true)
         set(value) = prefs.putBoolean("cleanup", value)
 
+    /**
+     * Mappings source: "auto" or a provider name/alias
+     * ("mojang", "yarn", "mcp", "mcpnew", "noop").
+     */
+    var mappingsSource: String
+        get() = prefs.get("mappingsSource", "auto")
+        set(value) = prefs.put("mappingsSource", value)
+
+    /** MCP names channel for 1.6.4-1.12.2: "stable" or "snapshot". */
+    var mcpChannel: String
+        get() = prefs.get("mcpChannel", "stable").takeIf { it == "snapshot" } ?: "stable"
+        set(value) = prefs.put("mcpChannel", if (value == "snapshot") "snapshot" else "stable")
+
     var darkTheme: Boolean
         get() = prefs.get("theme", "dark") == "dark"
         set(value) = prefs.put("theme", if (value) "dark" else "light")

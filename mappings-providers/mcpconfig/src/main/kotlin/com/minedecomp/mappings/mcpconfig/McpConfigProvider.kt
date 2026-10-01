@@ -17,9 +17,13 @@ import java.util.zip.ZipInputStream
  *
  * Two-stage remapping, works for every supported version:
  *  1. notch -> searge  (joined.srg from mcp-{version}-srg.zip)
- *  2. searge -> mcp    (methods.csv / fields.csv from mcp_stable-{stable}-{mc}.zip)
+ *  2. searge -> mcp    (methods.csv / fields.csv from mcp_stable or,
+ *     with channel="snapshot", the newest mcp_snapshot for the version)
  */
-class McpConfigProvider(private val cacheDir: String) : MappingProvider {
+class McpConfigProvider(
+    private val cacheDir: String,
+    private val channel: String = "stable"
+) : MappingProvider {
     override val name = "MCPConfig"
 
     companion object {
@@ -87,22 +91,37 @@ class McpConfigProvider(private val cacheDir: String) : MappingProvider {
         }
         val (classMap, seargeMethods, seargeFields) = parseSrg(srgFile.readText())
 
-        // Stage 2: searge -> mcp names from mcp_stable CSVs.
-        // Versions without a stable release (1.6.4, 1.7.2) keep searge names.
+        // Stage 2: searge -> mcp names from CSVs.
+        // Stable channel: mcp_stable (absent for 1.6.4/1.7.2 -> searge only).
+        // Snapshot channel: newest mcp_snapshot for the version (fresher names,
+        // also covers 1.6.4/1.7.2) with silent fallback to stable.
         val methodNames = mutableMapOf<String, String>()
         val fieldNames = mutableMapOf<String, String>()
-        val stable = stableVersions[version]
-        if (stable != null) {
-            val (stableNum, short) = stable
-            val methodsCsv = File(mappingsDir, "methods.csv")
-            val fieldsCsv = File(mappingsDir, "fields.csv")
+        val snapshotId = if (channel == "snapshot") newestSnapshot(version) else null
+        if (snapshotId != null) {
+            val methodsCsv = File(mappingsDir, "methods-snapshot.csv")
+            val fieldsCsv = File(mappingsDir, "fields-snapshot.csv")
             if (!methodsCsv.exists() || !fieldsCsv.exists()) {
-                val stableUrl = "$MAVEN_BASE/mcp_stable/$stableNum-$short/mcp_stable-$stableNum-$short.zip"
-                downloadZipEntry(stableUrl, "methods.csv", methodsCsv)
-                downloadZipEntry(stableUrl, "fields.csv", fieldsCsv)
+                val snapUrl = "$MAVEN_BASE/mcp_snapshot/$snapshotId/mcp_snapshot-$snapshotId.zip"
+                downloadZipEntry(snapUrl, "methods.csv", methodsCsv)
+                downloadZipEntry(snapUrl, "fields.csv", fieldsCsv)
             }
             parseCsv(methodsCsv.readText(), methodNames)
             parseCsv(fieldsCsv.readText(), fieldNames)
+        } else {
+            val stable = stableVersions[version]
+            if (stable != null) {
+                val (stableNum, short) = stable
+                val methodsCsv = File(mappingsDir, "methods.csv")
+                val fieldsCsv = File(mappingsDir, "fields.csv")
+                if (!methodsCsv.exists() || !fieldsCsv.exists()) {
+                    val stableUrl = "$MAVEN_BASE/mcp_stable/$stableNum-$short/mcp_stable-$stableNum-$short.zip"
+                    downloadZipEntry(stableUrl, "methods.csv", methodsCsv)
+                    downloadZipEntry(stableUrl, "fields.csv", fieldsCsv)
+                }
+                parseCsv(methodsCsv.readText(), methodNames)
+                parseCsv(fieldsCsv.readText(), fieldNames)
+            }
         }
 
         // Merge: notch -> mcp (fall back to searge when no mcp name exists)
@@ -118,8 +137,35 @@ class McpConfigProvider(private val cacheDir: String) : MappingProvider {
         Mappings(version, jarType, classMap, methodMappings, fieldMappings)
     }
 
-    private fun downloadZipEntry(url: String, entrySuffix: String, dest: File) {
-        val request = Request.Builder().url(url).build()
+    /** Newest mcp_snapshot id for an MC version (ids start with YYYYMMDD). */
+    private fun newestSnapshot(version: String): String? {
+        val metaFile = File(cacheDir, "mappings/mcp-snapshots.xml")
+        val xml = if (metaFile.exists() && isFresh(metaFile)) {
+            metaFile.readText()
+        } else try {
+            val request = Request.Builder().url("$MAVEN_BASE/mcp_snapshot/maven-metadata.xml").build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return null
+                val body = response.body?.string() ?: return null
+                metaFile.parentFile?.mkdirs()
+                metaFile.writeText(body)
+                body
+            }
+        } catch (e: Exception) {
+            return null
+        }
+        return Regex("<version>([^<]+)</version>").findAll(xml)
+            .map { it.groupValues[1] }
+            .filter { it.endsWith("-$version") }
+            .maxOrNull()
+    }
+
+    private fun isFresh(file: File): Boolean {
+        val age = System.currentTimeMillis() - file.lastModified()
+        return age < 24 * 3600 * 1000L
+    }
+
+    private fun downloadZipEntry(url: String, entrySuffix: String, dest: File) {        val request = Request.Builder().url(url).build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 throw RuntimeException("Failed to download mappings: ${response.code} ($url)")

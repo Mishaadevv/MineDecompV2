@@ -8,16 +8,19 @@ do), without hand-written batch scripts:
 
 1. Reads the Mojang version manifest (`version_manifest_v2.json`)
 2. Downloads `client.jar` / `server.jar` + metadata for the chosen version
+   (modern server jars are bundler wrappers — the inner game jar is extracted)
 3. Downloads obfuscation mappings (pluggable providers, see below)
 4. Remaps bytecode (classes/methods/fields) via ASM
-5. Decompiles to Java sources — Vineflower by default, CFR switchable
+5. Decompiles to sources — Vineflower 1.12 by default, CFR switchable
+   (Vineflower emits `.kt` for classes with Kotlin metadata)
 6. Lays out sources by package, optionally generates a Gradle skeleton
+   (real library coordinates, Java toolchain and main class from version metadata)
 
 ## Supported versions
 
 | Range | Mappings source | Status |
 |---|---|---|
-| 1.6.4 – 1.12.2 | MCP (`joined.srg` + `mcp_stable` CSV from Forge maven; 1.6.4/1.7.2 searge-only) | verified end-to-end (1803 files for 1.7.10, 2050 for 1.12.2) |
+| 1.6.4 – 1.12.2 | MCP (`joined.srg` + `mcp_stable` CSV, or newest `mcp_snapshot` with snapshot channel) | verified end-to-end (1803 files for 1.7.10, 2050 for 1.12.2) |
 | 1.13 – 1.13.2 | MCPConfig `joined.tsrg` + newest `mcp_snapshot` CSV from Forge maven | readable MCP names |
 | 1.14 – 1.14.3 | Yarn (Fabric meta + maven, tiny mappings) | readable Yarn names |
 | 1.14.4 – 1.21.11 | Mojang official mappings (ProGuard, from Mojang servers) | mappings download + parsing tested |
@@ -49,12 +52,18 @@ Headless CLI (no GUI):
 ```bat
 gradlew.bat :cli:run --args="--version 1.12.2"
 gradlew.bat :cli:run --args="--version 1.7.10 --side both --decompiler cfr"
+gradlew.bat :cli:run --args="--version 1.14.3 --mappings yarn"
+gradlew.bat :cli:run --args="--version 1.12.2 --mcp-channel snapshot"
 gradlew.bat :cli:run --args="--list-versions"
 gradlew.bat :cli:run --args="--help"
 ```
 
 `--side both` decompiles client and server sequentially into
 `sources/<version>/client` and `sources/<version>/server` with one combined report.
+
+Settings screen (and `--mappings` / `--mcp-channel` CLI flags) allow forcing
+a mappings source (`auto` by default: MCP → Mojang → Yarn → MCPConfig 1.13 →
+obfuscated) and switching MCP between `stable` and `snapshot` CSV channels.
 
 Run tests:
 

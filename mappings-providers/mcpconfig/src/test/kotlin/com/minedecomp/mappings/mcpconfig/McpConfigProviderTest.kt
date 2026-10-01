@@ -86,6 +86,20 @@ class McpConfigProviderTest {
     }
 
     @Test
+    fun `fetch snapshot-channel mappings for 1_12_2`() = runBlocking {
+        val provider = McpConfigProvider(tempDir.absolutePath, "snapshot")
+        val mappings = provider.fetchMappings("1.12.2", JarType.CLIENT)
+
+        assertTrue(mappings.classMappings.isNotEmpty(), "class mappings should not be empty")
+        assertTrue(mappings.methodMappings.isNotEmpty(), "method mappings should not be empty")
+
+        val humanNames = mappings.methodMappings.values.filter {
+            !it.startsWith("func_") && !it.startsWith("m_") && it.length > 1
+        }
+        assertTrue(humanNames.isNotEmpty(), "snapshot channel should contain MCP names")
+    }
+
+    @Test
     fun `fetch srg-only mappings for 1_7_2`() = runBlocking {
         val provider = McpConfigProvider(tempDir.absolutePath)
         val mappings = provider.fetchMappings("1.7.2", JarType.CLIENT)

@@ -33,9 +33,11 @@ class DecompilerEngineTest {
         val stats = engine.decompile(jar, out, DecompilerType.VINEFLOWER) { c, t -> progress = c to t }
 
         assertTrue(stats.classesDecompiled > 0, "should report produced classes, got: $stats")
+        // Since Vineflower 1.11 Kotlin classes decompile to .kt sources.
         assertTrue(
-            File(out, "com/minedecomp/core/decompiler/DecompStats.java").exists(),
-            "decompiled .java file must exist"
+            File(out, "com/minedecomp/core/decompiler/DecompStats.java").exists() ||
+                File(out, "com/minedecomp/core/decompiler/DecompStats.kt").exists(),
+            "decompiled source file must exist"
         )
         assertTrue(progress.first >= 1, "progress callback must fire")
     }

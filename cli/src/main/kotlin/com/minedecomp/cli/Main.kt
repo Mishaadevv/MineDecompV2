@@ -26,6 +26,7 @@ MineDecompV2 CLI — decompile Minecraft without the GUI.
 Usage:
   minedecomp --version <id> [--side client|server|both] [--output <dir>]
              [--cache <dir>] [--decompiler vineflower|cfr] [--gradle]
+             [--mappings auto|mojang|yarn|mcp|mcpnew|noop] [--mcp-channel stable|snapshot]
   minedecomp --list-versions [--snapshots]
   minedecomp --help
 
@@ -46,7 +47,7 @@ fun main(args: Array<String>) {
     runBlocking {
         val cacheDir = opts.cache ?: AppSettings.defaultCacheDir()
         val providers: List<MappingProvider> = listOf(
-            McpConfigProvider(cacheDir),
+            McpConfigProvider(cacheDir, opts.mcpChannel),
             MojangMappingsProvider(cacheDir),
             com.minedecomp.mappings.yarn.YarnMappingsProvider(cacheDir),
             com.minedecomp.mappings.mcpnew.McpNewProvider(cacheDir),
@@ -84,7 +85,9 @@ private data class Opts(
     val output: String? = null,
     val cache: String? = null,
     val decompiler: String = "vineflower",
-    val gradle: Boolean = false
+    val gradle: Boolean = false,
+    val mappings: String = "auto",
+    val mcpChannel: String = "stable"
 )
 
 private fun parseArgs(args: Array<String>): Opts {
@@ -111,6 +114,12 @@ private fun parseArgs(args: Array<String>): Opts {
                 o = o.copy(decompiler = d)
             }
             "--gradle" -> o = o.copy(gradle = true)
+            "--mappings" -> o = o.copy(mappings = args.getOrNull(++i) ?: fail("Missing value for --mappings"))
+            "--mcp-channel" -> {
+                val c = args.getOrNull(++i)?.lowercase() ?: fail("Missing value for --mcp-channel")
+                if (c !in setOf("stable", "snapshot")) fail("Invalid --mcp-channel: $c")
+                o = o.copy(mcpChannel = c)
+            }
             else -> fail("Unknown option: ${args[i]}\n\n$USAGE")
         }
         i++
@@ -193,7 +202,8 @@ private suspend fun runDecompilation(service: DecompService, version: String, op
             outputDir = opts.output ?: AppSettings.defaultOutputDir(),
             cacheDir = opts.cache ?: AppSettings.defaultCacheDir(),
             generateGradle = opts.gradle,
-            decompiler = if (opts.decompiler == "cfr") DecompilerType.CFR else DecompilerType.VINEFLOWER
+            decompiler = if (opts.decompiler == "cfr") DecompilerType.CFR else DecompilerType.VINEFLOWER,
+            mappingsSource = opts.mappings
         )
     )
 
