@@ -24,12 +24,14 @@ class MainView(
     onOpenSettings: () -> Unit
 ) : VBox(20.0) {
 
-    data class VersionRow(val id: String, val provider: String?, val hasMappings: Boolean)
+    data class VersionRow(val id: String, val type: String, val provider: String?, val hasMappings: Boolean)
 
     private val allRows = FXCollections.observableArrayList<VersionRow>()
     private val filteredRows = FilteredList(allRows)
     private val versionList = ListView<VersionRow>()
     private val searchField = TextField()
+    private val snapshotsCheck = CheckBox("Show snapshots")
+    private var showSnapshots = false
     private val jarTypeToggle = ToggleGroup()
     private val startButton = Button("Start Decompilation")
     private val settingsButton = Button("Settings")
@@ -62,7 +64,7 @@ class MainView(
 
         versionList.items = filteredRows
         versionList.prefWidth = 340.0
-        versionList.prefHeight = 260.0
+        versionList.prefHeight = 240.0
         versionList.styleClass.add("version-list")
         versionList.setCellFactory {
             object : ListCell<VersionRow>() {
@@ -71,15 +73,19 @@ class MainView(
                     if (empty || item == null) {
                         text = null
                         textFill = Color.web("#e0e0e0")
-                    } else if (item.provider != null && item.hasMappings) {
-                        text = "${item.id}  —  ${item.provider}"
-                        textFill = Color.web("#e0e0e0")
-                    } else if (item.provider != null) {
-                        text = "${item.id}  —  ${item.provider}"
-                        textFill = Color.web("#FF9800")
                     } else {
-                        text = "${item.id}  —  no mappings"
-                        textFill = Color.web("#616161")
+                        // Tag pre-1.0 eras so b1.7.3 / a1.2.6 don't look like typos.
+                        val tag = if (item.type == "release") "" else " [${item.type}]"
+                        if (item.provider != null && item.hasMappings) {
+                            text = "${item.id}$tag  —  ${item.provider}"
+                            textFill = Color.web("#e0e0e0")
+                        } else if (item.provider != null) {
+                            text = "${item.id}$tag  —  ${item.provider}"
+                            textFill = Color.web("#FF9800")
+                        } else {
+                            text = "${item.id}$tag  —  no mappings"
+                            textFill = Color.web("#616161")
+                        }
                     }
                 }
             }
@@ -132,6 +138,12 @@ class MainView(
 
         statusLabel.styleClass.add("status-label")
 
+        snapshotsCheck.isSelected = false
+        snapshotsCheck.setOnAction {
+            showSnapshots = snapshotsCheck.isSelected
+            loadVersions()
+        }
+
         children.addAll(
             title,
             subtitle,
@@ -139,6 +151,7 @@ class MainView(
             versionLabel,
             searchField,
             versionList,
+            snapshotsCheck,
             jarTypeLabel,
             jarTypeBox,
             Region().apply { prefHeight = 10.0 },
@@ -161,7 +174,11 @@ class MainView(
             }
             !selected.hasMappings -> {
                 startButton.isDisable = false
-                statusLabel.text = "No mappings for ${selected.id} — output will keep obfuscated names."
+                statusLabel.text = if (selected.type == "release") {
+                    "No mappings for ${selected.id} — output will keep obfuscated names."
+                } else {
+                    "No mappings for ${selected.id} (${selected.type}) — obfuscated output, client jar only, use Client side."
+                }
                 statusLabel.textFill = Color.web("#FF9800")
             }
             else -> {
@@ -173,37 +190,44 @@ class MainView(
     }
 
     private fun loadVersions() {
+        statusLabel.text = "Loading versions..."
         scope.launch {
             try {
                 val cacheManager = CacheManager(settings.cacheDir)
                 val manifest = cacheManager.getVersionManifest()
 
-                val releases = manifest.versions
-                    .filter { it.type == "release" }
-                    .map { it.id }
+                // Releases + the whole pre-1.0 era (old_beta / old_alpha).
+                // Snapshots only on demand: 700+ entries, each needing a
+                // provider probe (cached on disk after the first load).
+                val playable = manifest.versions
+                    .filter {
+                        it.type == "release" || it.type == "old_beta" || it.type == "old_alpha" ||
+                            (showSnapshots && it.type == "snapshot")
+                    }
 
-                // Resolve the mappings provider for every release in parallel.
+                // Resolve the mappings provider for every version in parallel.
                 // Version JSONs are cached on disk, so repeat visits are instant.
-                val rows = releases.map { id ->
+                val rows = playable.map { entry ->
                     async {
                         val provider = mappingProviders.firstOrNull {
                             try {
-                                it.supports(id)
+                                it.supports(entry.id)
                             } catch (e: Exception) {
                                 false
                             }
                         }
-                        VersionRow(id, provider?.name, provider?.hasMappings ?: false)
+                        VersionRow(entry.id, entry.type, provider?.name, provider?.hasMappings ?: false)
                     }
                 }.awaitAll()
 
                 val supported = rows.count { it.provider != null }
+                val oldCount = rows.count { it.type != "release" }
                 Platform.runLater {
                     allRows.setAll(rows)
                     val preselect = rows.firstOrNull { it.id == "1.12.2" && it.provider != null }
                         ?: rows.firstOrNull { it.provider != null }
                     versionList.selectionModel.select(preselect)
-                    statusLabel.text = "${rows.size} releases, $supported with mappings."
+                    statusLabel.text = "${rows.size} versions ($oldCount pre-1.0), $supported with mappings."
                     statusLabel.textFill = Color.web("#4CAF50")
                 }
             } catch (e: Exception) {

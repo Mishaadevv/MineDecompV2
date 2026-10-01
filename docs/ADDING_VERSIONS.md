@@ -77,5 +77,14 @@ method1,methodName,0,Description
 
 ## Примечания
 
-- Версии выше 1.12.2 не поддерживаются из-за изменений в структуре байткода
-- Для версий 1.13+ требуется дополнительная обработка из-за перехода на новую систему маппингов
+- MCP покрывает 1.6.4–1.12.2 (Forge maven, `joined.srg` + `mcp_stable` CSV).
+- MCPConfig-new покрывает 1.13–1.13.2 (`joined.tsrg` из `mcp_config` + newest
+  `mcp_snapshot` CSV).
+- Yarn покрывает 1.14–1.14.3 (Fabric meta + maven, tiny mappings) и любые
+  снапшоты/релизы, для которых Fabric публикует билды.
+- Mojang official покрывает 1.14.4–1.21.11 (ProGuard с серверов Mojang); новые
+  релизы 26.x опрашиваются фактически — если Mojang опубликует для них
+  маппинги, они подхватятся автоматически, сейчас там только obfuscated fallback.
+- Всё остальное (pre-1.0: Classic/Alpha/Beta, 1.0–1.5.2)
+  декомпилируется через obfuscated fallback (`NoopMappingsProvider`, notch-имена).
+  Версии до 1.6 публикуют только client jar — используйте сторону Client.

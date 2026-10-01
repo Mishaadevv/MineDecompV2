@@ -23,6 +23,18 @@ class NoopMappingsProviderTest {
     }
 
     @Test
+    fun `supports pre-1_0 era and new-scheme releases via obfuscated fallback`() = runBlocking {
+        val provider = NoopMappingsProvider(tempDir.absolutePath)
+        // Beta / Alpha / Classic (old_beta / old_alpha in the manifest)
+        assertTrue(provider.supports("b1.7.3"))
+        assertTrue(provider.supports("a1.2.6"))
+        assertTrue(provider.supports("c0.0.13a"))
+        // New year-based scheme: no official mappings, obfuscated fallback
+        assertTrue(provider.supports("26.3"))
+        assertFalse(provider.hasMappings)
+    }
+
+    @Test
     fun `fetch returns empty identity mappings`() = runBlocking {
         val provider = NoopMappingsProvider(tempDir.absolutePath)
         val mappings = provider.fetchMappings("1.5.2", JarType.CLIENT)

@@ -17,6 +17,8 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":mappings-providers:mcpconfig"))
     implementation(project(":mappings-providers:mojang"))
+    implementation(project(":mappings-providers:yarn"))
+    implementation(project(":mappings-providers:mcpnew"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-javafx:1.7.3")
     implementation("org.openjfx:javafx-controls:21")
     implementation("org.openjfx:javafx-fxml:21")

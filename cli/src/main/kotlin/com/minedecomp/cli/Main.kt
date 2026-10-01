@@ -26,7 +26,7 @@ MineDecompV2 CLI — decompile Minecraft without the GUI.
 Usage:
   minedecomp --version <id> [--side client|server|both] [--output <dir>]
              [--cache <dir>] [--decompiler vineflower|cfr] [--gradle]
-  minedecomp --list-versions
+  minedecomp --list-versions [--snapshots]
   minedecomp --help
 
 Examples:
@@ -48,11 +48,13 @@ fun main(args: Array<String>) {
         val providers: List<MappingProvider> = listOf(
             McpConfigProvider(cacheDir),
             MojangMappingsProvider(cacheDir),
+            com.minedecomp.mappings.yarn.YarnMappingsProvider(cacheDir),
+            com.minedecomp.mappings.mcpnew.McpNewProvider(cacheDir),
             com.minedecomp.core.mappings.NoopMappingsProvider(cacheDir)
         )
 
         if (opts.listVersions) {
-            listVersions(cacheDir, providers)
+            listVersions(cacheDir, providers, opts.snapshots)
             return@runBlocking
         }
 
@@ -76,6 +78,7 @@ fun main(args: Array<String>) {
 private data class Opts(
     val help: Boolean = false,
     val listVersions: Boolean = false,
+    val snapshots: Boolean = false,
     val version: String? = null,
     val side: String = "client",
     val output: String? = null,
@@ -91,6 +94,7 @@ private fun parseArgs(args: Array<String>): Opts {
         when (args[i]) {
             "--help", "-h" -> o = o.copy(help = true)
             "--list-versions" -> o = o.copy(listVersions = true)
+            "--snapshots" -> o = o.copy(snapshots = true)
             "--version" -> {
                 o = o.copy(version = args.getOrNull(++i) ?: fail("Missing value for --version"))
             }
@@ -120,10 +124,15 @@ private fun fail(message: String): Nothing {
     throw IllegalStateException(message)
 }
 
-private suspend fun listVersions(cacheDir: String, providers: List<MappingProvider>) {
+private suspend fun listVersions(cacheDir: String, providers: List<MappingProvider>, snapshots: Boolean) {
     val manifest = CacheManager(cacheDir).getVersionManifest()
-    val releases = manifest.versions.filter { it.type == "release" }
-    for (entry in releases) {
+    // Releases + pre-1.0 era (old_beta / old_alpha). Snapshots only with
+    // --snapshots (700+ noisy entries) but decompile the same way.
+    val playable = manifest.versions.filter {
+        it.type == "release" || it.type == "old_beta" || it.type == "old_alpha" ||
+            (snapshots && it.type == "snapshot")
+    }
+    for (entry in playable) {
         val provider = providers.firstOrNull {
             try {
                 it.supports(entry.id)
@@ -131,7 +140,8 @@ private suspend fun listVersions(cacheDir: String, providers: List<MappingProvid
                 false
             }
         }
-        println("${entry.id}  —  ${provider?.name ?: "no mappings"}")
+        val tag = if (entry.type == "release") "" else " [${entry.type}]"
+        println("${entry.id}$tag  —  ${provider?.name ?: "no mappings"}")
     }
 }
 

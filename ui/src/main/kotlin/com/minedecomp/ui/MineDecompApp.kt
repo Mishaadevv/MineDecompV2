@@ -29,6 +29,8 @@ class MineDecompApp : Application() {
         return listOf(
             com.minedecomp.mappings.mcpconfig.McpConfigProvider(settings.cacheDir),
             com.minedecomp.mappings.mojang.MojangMappingsProvider(settings.cacheDir),
+            com.minedecomp.mappings.yarn.YarnMappingsProvider(settings.cacheDir),
+            com.minedecomp.mappings.mcpnew.McpNewProvider(settings.cacheDir),
             // Fallback last: decompiles anything with obfuscated names.
             com.minedecomp.core.mappings.NoopMappingsProvider(settings.cacheDir)
         )

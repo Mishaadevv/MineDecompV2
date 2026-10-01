@@ -18,12 +18,18 @@ do), without hand-written batch scripts:
 | Range | Mappings source | Status |
 |---|---|---|
 | 1.6.4 – 1.12.2 | MCP (`joined.srg` + `mcp_stable` CSV from Forge maven; 1.6.4/1.7.2 searge-only) | verified end-to-end (1803 files for 1.7.10, 2050 for 1.12.2) |
-| 1.14.4 – 1.21.x | Mojang official mappings (ProGuard, from Mojang servers) | mappings download + parsing tested |
-| everything else (1.13.x – 1.14.3, 26.x, pre-1.6.4…) | none published — obfuscated fallback | orange `Obfuscated (no mappings)` badge, output keeps notch names |
+| 1.13 – 1.13.2 | MCPConfig `joined.tsrg` + newest `mcp_snapshot` CSV from Forge maven | readable MCP names |
+| 1.14 – 1.14.3 | Yarn (Fabric meta + maven, tiny mappings) | readable Yarn names |
+| 1.14.4 – 1.21.11 | Mojang official mappings (ProGuard, from Mojang servers) | mappings download + parsing tested |
+| snapshots (with Mojang/Yarn mappings) | Mojang official / Yarn, probed factually | hidden behind `Show snapshots` in UI, `--snapshots` in CLI |
+| everything else: pre-1.0 era (Classic/Alpha/Beta) + 1.0–1.5.2, 26.x | none published — obfuscated fallback | orange `Obfuscated (no mappings)` badge, output keeps notch names; pre-1.6 versions ship client jar only, use Client side |
 
-The main screen lists every release with a live provider badge
+The main screen lists every release plus the pre-1.0 era (`old_beta` / `old_alpha`)
+with a live provider badge
 (`MCP`, `Mojang Official`, or greyed-out `no mappings`), plus search.
-Versions without mappings cannot be started.
+Snapshots are hidden from the list (700+ noisy entries) but decompile the same
+way via CLI. Versions with the orange `Obfuscated (no mappings)` badge can still
+be started — the output just keeps notch names.
 
 ## Requirements
 
@@ -79,8 +85,10 @@ MineDecompV2/
 │   ├── screens/             # Main/Settings/Progress/Result
 │   └── MineDecompApp        # Entry point
 └── mappings-providers/      # Provider implementations
-    ├── mcpconfig/           # MCP (Forge maven, 1.7.10-1.12.2)
-    └── mojang/              # Mojang official (piston-data, 1.14+)
+    ├── mcpconfig/           # MCP (Forge maven, 1.6.4–1.12.2)
+    ├── mcpnew/              # MCPConfig joined.tsrg + snapshots (1.13–1.13.2)
+    ├── yarn/                # Fabric Yarn tiny mappings (1.14–1.14.3, snapshots)
+    └── mojang/              # Mojang official (piston-data, 1.14.4–1.21.11)
 ```
 
 ## Adding a new mappings source

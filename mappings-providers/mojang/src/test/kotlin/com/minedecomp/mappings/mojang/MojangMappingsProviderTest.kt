@@ -21,7 +21,14 @@ class MojangMappingsProviderTest {
         assertTrue(provider.supports("1.21.11"))
         assertFalse(provider.supports("1.13.2"))
         assertFalse(provider.supports("1.12.2"))
+        // New-scheme releases have no published mappings (factual check):
+        // probed, not pre-rejected, so they light up automatically if Mojang
+        // publishes mappings later.
         assertFalse(provider.supports("26.3"))
+        // Pre-1.0 era never has official mappings (fast pre-filter, no network).
+        assertFalse(provider.supports("b1.7.3"))
+        assertFalse(provider.supports("a1.2.6"))
+        assertFalse(provider.supports("c0.0.13a"))
     }
 
     @Test

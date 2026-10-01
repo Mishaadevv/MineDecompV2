@@ -21,8 +21,12 @@ MineDecompV2 — десктопный декомпилятор Minecraft для 
 - **screens/** — экраны (MainView, SettingsView, ProgressView, ResultView)
 - **MineDecompApp** — главный класс приложения
 
-### Mappings Providers
-- **mcpconfig/** — провайдер MCPConfig (McpConfigProvider)
+### Mappings Providers (цепочка: MCP → Mojang → Yarn → MCPConfig-new → Noop)
+- **mcpconfig/** — классический MCP 1.6.4–1.12.2 (McpConfigProvider)
+- **mcpnew/** — MCPConfig `joined.tsrg` + снапшоты 1.13–1.13.2 (McpNewProvider)
+- **yarn/** — Fabric Yarn tiny-маппинги 1.14–1.14.3 + снапшоты (YarnMappingsProvider)
+- **mojang/** — официальные маппинги Mojang 1.14.4–1.21.11 (MojangMappingsProvider)
+- **core/mappings/NoopMappingsProvider** — obfuscated fallback для всего остального
 
 ## Пайплайн
 

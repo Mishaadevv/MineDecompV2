@@ -52,7 +52,14 @@ class DecompPipeline(
             }
 
             val downloadInfo = metadata.downloads[downloadKey]
-                ?: throw RuntimeException("No $downloadKey download for version ${request.version}")
+                ?: throw RuntimeException(
+                    if (downloadKey == "server") {
+                        "No server jar published for version ${request.version} " +
+                            "(pre-1.6 versions ship client only) — rerun with client side"
+                    } else {
+                        "No $downloadKey download for version ${request.version}"
+                    }
+                )
 
             callbacks.onEvent(PipelineEvent.Log(LogLevel.INFO, "Downloading $downloadKey.jar (${downloadInfo.size / 1024 / 1024} MB)..."))
 

@@ -13,7 +13,9 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Mappings provider based on the official Mojang mappings (ProGuard format)
- * published in the version manifest for 1.14.4+ (up to 1.20.x).
+ * published in the version manifest for 1.14.4+ (1.14.4-1.21.11 verified).
+ * New-scheme releases (26.x, ...) are probed factually as well: if Mojang
+ * publishes mappings for them, they are picked up automatically.
  * Files are downloaded from Mojang's own servers (piston-data), exactly like
  * the official Minecraft Launcher does - nothing is bundled with the app.
  */
@@ -56,16 +58,27 @@ class MojangMappingsProvider(private val cacheDir: String) : MappingProvider {
     }
 
     /**
-     * Pre-filter for the classic 1.x numbering: official mappings exist for
-     * 1.14+. The final decision is factual (presence of client/server mappings
-     * in the version manifest), so versions like 1.13.x are rejected there.
-     * New-scheme versions (26.x) have no published mappings and are excluded.
+     * Pre-filter to avoid a network round-trip for versions that never had
+     * official mappings (1.0-1.13.x, alpha/beta classics). The final decision
+     * is factual (presence of client/server mappings in the version JSON),
+     * so new-scheme releases (26.x, ...) automatically light up if Mojang
+     * publishes mappings for them later — currently they have none and fall
+     * back to the obfuscated provider.
      */
     private fun isInRange(version: String): Boolean {
-        val parts = version.split(".")
-        if (parts.size < 2 || parts[0] != "1") return false
-        val minor = parts[1].toIntOrNull() ?: return false
-        return minor >= 14
+        // Classic 1.x numbering: official mappings exist for 1.14+.
+        if (version.startsWith("1.")) {
+            val minor = version.split(".").getOrNull(1)
+                ?.substringBefore("-")?.toIntOrNull() ?: return false
+            return minor >= 14
+        }
+        // New year-based scheme (26.1, 26.2, 26.3, ...) and its snapshots
+        // (26.4-snapshot-1, ...): let the factual manifest check decide.
+        // Old pre-1.0 ids (b1.7.3, a1.2.6, c0.0.13a, rd-132211, ...) are not
+        // numeric and never have official mappings.
+        val major = version.substringBefore(".").substringBefore("-").toIntOrNull()
+            ?: return false
+        return major >= 20
     }
 
     private fun mappingsUrl(version: String, jarType: JarType): String? {

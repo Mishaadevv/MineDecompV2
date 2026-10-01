@@ -11,5 +11,7 @@ dependencies {
     implementation(project(":app"))
     implementation(project(":mappings-providers:mcpconfig"))
     implementation(project(":mappings-providers:mojang"))
+    implementation(project(":mappings-providers:yarn"))
+    implementation(project(":mappings-providers:mcpnew"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 }
