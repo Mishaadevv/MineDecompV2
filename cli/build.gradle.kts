@@ -4,6 +4,8 @@ plugins {
 
 application {
     mainClass.set("com.minedecomp.cli.MainKt")
+    // Modern clients (30k+ classes) OOM smaller heaps during decompilation.
+    applicationDefaultJvmArgs = listOf("-Xmx4g")
 }
 
 dependencies {

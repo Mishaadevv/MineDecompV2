@@ -109,7 +109,8 @@ class MineDecompApp : Application() {
                 cacheDir = cacheDir,
                 generateGradle = generateGradle,
                 decompiler = decompiler,
-                mappingsSource = settings.mappingsSource
+                mappingsSource = settings.mappingsSource,
+                cleanupTempFiles = settings.cleanupTempFiles
             )
         )
     }

@@ -27,7 +27,9 @@ Usage:
   minedecomp --version <id> [--side client|server|both] [--output <dir>]
              [--cache <dir>] [--decompiler vineflower|cfr] [--gradle]
              [--mappings auto|mojang|yarn|mcp|mcpnew|noop] [--mcp-channel stable|snapshot]
+             [--keep-temp]
   minedecomp --list-versions [--snapshots]
+  minedecomp --clear-cache [--cache <dir>]
   minedecomp --help
 
 Examples:
@@ -59,6 +61,12 @@ fun main(args: Array<String>) {
             return@runBlocking
         }
 
+        if (opts.clearCache) {
+            val freed = CacheManager(cacheDir).clearCache()
+            println("Cache cleared: %.1f MB freed.".format(freed / 1024.0 / 1024.0))
+            return@runBlocking
+        }
+
         val version = opts.version
         if (version == null) {
             System.err.println("Missing required option: --version <id>\n\n$USAGE")
@@ -87,7 +95,9 @@ private data class Opts(
     val decompiler: String = "vineflower",
     val gradle: Boolean = false,
     val mappings: String = "auto",
-    val mcpChannel: String = "stable"
+    val mcpChannel: String = "stable",
+    val keepTemp: Boolean = false,
+    val clearCache: Boolean = false
 )
 
 private fun parseArgs(args: Array<String>): Opts {
@@ -120,6 +130,8 @@ private fun parseArgs(args: Array<String>): Opts {
                 if (c !in setOf("stable", "snapshot")) fail("Invalid --mcp-channel: $c")
                 o = o.copy(mcpChannel = c)
             }
+            "--keep-temp" -> o = o.copy(keepTemp = true)
+            "--clear-cache" -> o = o.copy(clearCache = true)
             else -> fail("Unknown option: ${args[i]}\n\n$USAGE")
         }
         i++
@@ -203,7 +215,8 @@ private suspend fun runDecompilation(service: DecompService, version: String, op
             cacheDir = opts.cache ?: AppSettings.defaultCacheDir(),
             generateGradle = opts.gradle,
             decompiler = if (opts.decompiler == "cfr") DecompilerType.CFR else DecompilerType.VINEFLOWER,
-            mappingsSource = opts.mappings
+            mappingsSource = opts.mappings,
+            cleanupTempFiles = !opts.keepTemp
         )
     )
 

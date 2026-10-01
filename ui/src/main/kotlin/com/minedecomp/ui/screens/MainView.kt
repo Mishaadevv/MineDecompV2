@@ -32,12 +32,19 @@ class MainView(
     private val searchField = TextField()
     private val snapshotsCheck = CheckBox("Show snapshots")
     private var showSnapshots = false
+    private val clientRadio = RadioButton("Client")
+    private val serverRadio = RadioButton("Server")
+    private val bothRadio = RadioButton("Both")
+    private var manifestUrls = mapOf<String, String>()
+    private val serverAvailability = mutableMapOf<String, Boolean>()
+    private val gson = com.google.gson.Gson()
     private val jarTypeToggle = ToggleGroup()
     private val startButton = Button("Start Decompilation")
     private val settingsButton = Button("Settings")
     private val statusLabel = Label("Loading versions...")
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private var loadJob: Job? = null
 
     init {
         padding = Insets(40.0)
@@ -92,14 +99,11 @@ class MainView(
         }
         versionList.selectionModel.selectedItemProperty().addListener { _, _, selected ->
             updateStartState(selected)
+            probeServerAvailability(selected)
         }
 
         val jarTypeLabel = Label("JAR type:")
         jarTypeLabel.styleClass.add("field-label")
-
-        val clientRadio = RadioButton("Client")
-        val serverRadio = RadioButton("Server")
-        val bothRadio = RadioButton("Both")
 
         clientRadio.toggleGroup = jarTypeToggle
         serverRadio.toggleGroup = jarTypeToggle
@@ -189,9 +193,53 @@ class MainView(
         }
     }
 
+    /**
+     * Pre-1.6 versions publish no server jar. Probe the version JSON (once
+     * per version, result cached) and lock the Server/Both sides when the
+     * `server` download is absent, so the choice fails fast in the UI
+     * instead of deep in the pipeline.
+     */
+    private fun probeServerAvailability(selected: VersionRow?) {
+        serverRadio.isDisable = false
+        bothRadio.isDisable = false
+        serverRadio.tooltip = null
+        bothRadio.tooltip = null
+        if (selected == null) return
+        serverAvailability[selected.id]?.let { applyServerAvailability(selected.id, it); return }
+        scope.launch {
+            try {
+                val url = manifestUrls[selected.id] ?: return@launch
+                val text = java.net.URI(url).toURL().readText()
+                val meta = gson.fromJson(text, com.minedecomp.core.VersionMetadata::class.java)
+                val hasServer = meta.downloads.containsKey("server")
+                serverAvailability[selected.id] = hasServer
+                Platform.runLater {
+                    if (versionList.selectionModel.selectedItem?.id == selected.id) {
+                        applyServerAvailability(selected.id, hasServer)
+                    }
+                }
+            } catch (e: Exception) {
+                // Leave sides enabled: the pipeline reports download errors.
+            }
+        }
+    }
+
+    private fun applyServerAvailability(versionId: String, hasServer: Boolean) {
+        if (hasServer) return
+        serverRadio.isDisable = true
+        bothRadio.isDisable = true
+        val tip = Tooltip("No server jar published for $versionId (client only)")
+        serverRadio.tooltip = tip
+        bothRadio.tooltip = tip
+        if (jarTypeToggle.selectedToggle != clientRadio) {
+            clientRadio.isSelected = true
+        }
+    }
+
     private fun loadVersions() {
         statusLabel.text = "Loading versions..."
-        scope.launch {
+        loadJob?.cancel()
+        loadJob = scope.launch {
             try {
                 val cacheManager = CacheManager(settings.cacheDir)
                 val manifest = cacheManager.getVersionManifest()
@@ -204,6 +252,7 @@ class MainView(
                         it.type == "release" || it.type == "old_beta" || it.type == "old_alpha" ||
                             (showSnapshots && it.type == "snapshot")
                     }
+                val urls = playable.associate { it.id to it.url }
 
                 // Resolve the mappings provider for every version in parallel.
                 // Version JSONs are cached on disk, so repeat visits are instant.
@@ -224,6 +273,7 @@ class MainView(
                 val oldCount = rows.count { it.type != "release" }
                 Platform.runLater {
                     allRows.setAll(rows)
+                    manifestUrls = urls
                     val preselect = rows.firstOrNull { it.id == "1.12.2" && it.provider != null }
                         ?: rows.firstOrNull { it.provider != null }
                     versionList.selectionModel.select(preselect)

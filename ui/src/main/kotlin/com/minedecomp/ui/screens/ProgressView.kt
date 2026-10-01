@@ -93,11 +93,16 @@ class ProgressView(
                         }
                         is PipelineEvent.Completed -> {
                             cancelButton.isDisable = true
+                            scope.cancel()
                             onCompleted(event.result)
                         }
                         is PipelineEvent.Failed -> {
                             log("[ERROR] Failed: ${event.error}")
-                            cancelButton.isDisable = true
+                            // Leave a way out: the failure is terminal, so the
+                            // cancel button becomes a back button.
+                            cancelButton.text = "Back"
+                            cancelButton.isDisable = false
+                            scope.cancel()
                         }
                     }
                 }

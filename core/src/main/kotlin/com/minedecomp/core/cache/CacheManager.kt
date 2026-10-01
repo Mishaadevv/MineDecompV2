@@ -93,8 +93,33 @@ class CacheManager(private val cacheDir: String) {
         return age < hours * 3600 * 1000
     }
 
-    private fun verifySha1(file: File, expected: String): Boolean {
-        val digest = MessageDigest.getInstance("SHA-1")
+    /**
+     * Deletes downloaded jars, remapped/bundled intermediates, mappings and
+     * version metadata — outputs in the user output dir are never touched.
+     * Only known subdirectories of the cache dir are removed, never the dir
+     * itself. Returns freed bytes.
+     */
+    suspend fun clearCache(): Long = withContext(Dispatchers.IO) {
+        val root = File(cacheDir)
+        var freed = 0L
+        for (child in root.listFiles() ?: emptyArray()) {
+            if (child.name == "jars" || child.name == "remapped" || child.name == "bundled" ||
+                child.name == "mappings" || child.name == "versions" ||
+                child.name == "version_manifest_v2.json"
+            ) {
+                freed += dirSize(child)
+                child.deleteRecursively()
+            }
+        }
+        freed
+    }
+
+    private fun dirSize(file: File): Long {
+        if (file.isFile) return file.length()
+        return file.listFiles()?.sumOf { dirSize(it) } ?: 0L
+    }
+
+    private fun verifySha1(file: File, expected: String): Boolean {        val digest = MessageDigest.getInstance("SHA-1")
         file.inputStream().use { stream ->
             val buffer = ByteArray(8192)
             var read: Int

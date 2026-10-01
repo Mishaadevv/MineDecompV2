@@ -78,7 +78,9 @@ data class DecompRequest(
      * "mcp", "mcpnew", "noop"). Unknown or unsupported values fall back
      * to auto with a warning.
      */
-    val mappingsSource: String = "auto"
+    val mappingsSource: String = "auto",
+    /** Delete the intermediate remapped jar after a successful run. */
+    val cleanupTempFiles: Boolean = true
 )
 
 enum class DecompilerType { VINEFLOWER, CFR }

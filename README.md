@@ -64,6 +64,10 @@ gradlew.bat :cli:run --args="--help"
 Settings screen (and `--mappings` / `--mcp-channel` CLI flags) allow forcing
 a mappings source (`auto` by default: MCP → Mojang → Yarn → MCPConfig 1.13 →
 obfuscated) and switching MCP between `stable` and `snapshot` CSV channels.
+The intermediate remapped jar is deleted after success unless disabled
+(`Delete temporary files` / `--keep-temp`); the download cache can be wiped
+from Settings or via `--clear-cache`. A failed run reports exactly which
+classes produced no source file.
 
 Run tests:
 

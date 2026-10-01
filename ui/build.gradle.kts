@@ -10,6 +10,8 @@ javafx {
 
 application {
     mainClass.set("com.minedecomp.ui.MineDecompApp")
+    // Modern clients (30k+ classes) OOM smaller heaps during decompilation.
+    applicationDefaultJvmArgs = listOf("-Xmx4g")
 }
 
 dependencies {

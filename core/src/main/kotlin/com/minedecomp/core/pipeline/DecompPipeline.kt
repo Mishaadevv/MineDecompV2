@@ -124,6 +124,19 @@ class DecompPipeline(
             callbacks.onEvent(PipelineEvent.StageCompleted("decompile"))
             fileLogger?.info("Decompilation completed: ${stats.classesDecompiled} classes, ${stats.errors.size} errors")
 
+            // Zero output is a failure, not an empty success. Otherwise diff
+            // the remapped jar against the written sources so the result
+            // reports exactly which classes produced nothing.
+            val succeeded = stats.classesDecompiled > 0
+            val missingSources = if (succeeded) {
+                findMissingSources(effectiveJar, outputDir, mappings)
+            } else emptyList()
+            if (missingSources.isNotEmpty()) {
+                callbacks.onEvent(
+                    PipelineEvent.Log(LogLevel.WARN, "${missingSources.size} classes produced no source file")
+                )
+            }
+
             callbacks.onEvent(PipelineEvent.StageStarted("layout"))
             callbacks.onEvent(PipelineEvent.Log(LogLevel.INFO, "Laying out files..."))
             fileLogger?.info("Laying out files...")
@@ -135,12 +148,26 @@ class DecompPipeline(
             callbacks.onEvent(PipelineEvent.StageCompleted("layout"))
             callbacks.onEvent(PipelineEvent.StageCompleted("done"))
 
+            if (request.cleanupTempFiles) {
+                try {
+                    if (remappedJar.exists() && remappedJar.delete()) {
+                        callbacks.onEvent(PipelineEvent.Log(LogLevel.INFO, "Cleaned up intermediate remapped jar"))
+                    }
+                } catch (e: Exception) {
+                    callbacks.onEvent(PipelineEvent.Log(LogLevel.WARN, "Cleanup failed: ${e.message}"))
+                }
+            }
+
             val result = DecompResult(
-                success = true,
+                success = succeeded,
                 classesDecompiled = stats.classesDecompiled,
-                classesWithErrors = stats.errors,
+                classesWithErrors = if (succeeded) missingSources else stats.errors.ifEmpty {
+                    listOf("Decompiler produced no output for ${request.version}")
+                },
                 outputDir = outputDir.absolutePath,
-                errors = emptyList()
+                errors = if (succeeded) emptyList() else stats.errors.ifEmpty {
+                    listOf("Decompiler produced no output for ${request.version}")
+                }
             )
 
             callbacks.onEvent(PipelineEvent.Completed(result))
@@ -210,6 +237,27 @@ class DecompPipeline(
             )
         )
         return auto
+    }
+
+    /**
+     * Classes from the remapped jar that have neither a `.java` nor a `.kt`
+     * source in the output (Vineflower emits `.kt` for Kotlin metadata since
+     * 1.11). Inner classes (`Outer$Inner`) count as present when either the
+     * `Outer$Inner` file or the folded `Outer` file exists.
+     */
+    internal fun findMissingSources(inputJar: File, outputDir: File, mappings: Mappings): List<String> {
+        val expected = JarFile(inputJar).use { jar ->
+            jar.entries().asSequence()
+                .filter { it.name.endsWith(".class") && !it.isDirectory }
+                .map { renameEntry(it.name, mappings).removeSuffix(".class") }
+                .toList()
+        }
+        return expected.filter { base ->
+            val direct = File(outputDir, "$base.java").exists() || File(outputDir, "$base.kt").exists()
+            if (direct || '$' !in base) return@filter !direct
+            val outer = base.substringBefore('$')
+            !(File(outputDir, "$outer.java").exists() || File(outputDir, "$outer.kt").exists())
+        }
     }
 
     /**

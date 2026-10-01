@@ -2,6 +2,8 @@ package com.minedecomp.ui.screens
 
 import com.minedecomp.app.AppSettings
 import com.minedecomp.core.DecompilerType
+import com.minedecomp.core.cache.CacheManager
+import javafx.application.Platform
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.control.*
@@ -26,6 +28,7 @@ class SettingsView(
     private val gradleCheck = CheckBox("Generate Gradle project")
     private val cleanupCheck = CheckBox("Delete temporary files after completion")
     private val themeCombo = ComboBox<String>()
+    private val cacheStatusLabel = Label("")
 
     init {
         padding = Insets(30.0)
@@ -124,7 +127,33 @@ class SettingsView(
             onBack()
         }
 
-        children.addAll(backBox, title, form, saveButton)
+        val clearCacheButton = Button("Clear download cache")
+        clearCacheButton.styleClass.add("secondary-button")
+        clearCacheButton.setOnAction {
+            clearCacheButton.isDisable = true
+            cacheStatusLabel.text = "Clearing..."
+            Thread {
+                try {
+                    val freed = kotlinx.coroutines.runBlocking {
+                        CacheManager(cacheDirField.text.ifBlank { AppSettings.defaultCacheDir() }).clearCache()
+                    }
+                    Platform.runLater {
+                        cacheStatusLabel.text = "Freed %.1f MB".format(freed / 1024.0 / 1024.0)
+                        clearCacheButton.isDisable = false
+                    }
+                } catch (e: Exception) {
+                    Platform.runLater {
+                        cacheStatusLabel.text = "Failed: ${e.message}"
+                        clearCacheButton.isDisable = false
+                    }
+                }
+            }.apply { isDaemon = true }.start()
+        }
+
+        val cacheBox = HBox(10.0, clearCacheButton, cacheStatusLabel)
+        cacheBox.alignment = Pos.CENTER
+
+        children.addAll(backBox, title, form, saveButton, cacheBox)
     }
 
     private fun pickDirectory(initial: String): String? {
